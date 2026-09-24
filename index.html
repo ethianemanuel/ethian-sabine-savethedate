@@ -330,6 +330,7 @@
     border-color: var(--gold);
     color: var(--ink);
   }
+  .rsvp-send:disabled{ opacity:0.6; cursor:default; }
   .rsvp-send{
     display:inline-block;
     margin-top:30px;
@@ -653,57 +654,29 @@
       if(!first || !last){ confirmMsg.textContent = 'Please enter your first and last name first.'; return; }
       confirmMsg.textContent = 'Sending\u2026';
       sendBtn.classList.remove('is-active');
+      sendBtn.disabled = true;
 
-      // Submit straight to Google via a hidden iframe: no popup, guest never leaves this page.
-      var iframeName = 'rsvp-target-frame';
-      var iframe = document.getElementById(iframeName);
-      if(!iframe){
-        iframe = document.createElement('iframe');
-        iframe.name = iframeName;
-        iframe.id = iframeName;
-        iframe.style.display = 'none';
-        document.body.appendChild(iframe);
-      }
-
-      var form = document.createElement('form');
-      form.action = 'https://docs.google.com/forms/d/e/1FAIpQLScTRlZI1ZZrrEyyXyy6IESUa6qOUckcIDZwtVFtViPeVQrYEw/formResponse';
-      form.method = 'POST';
-      form.target = iframeName;
-      form.style.display = 'none';
-
-      function addField(name, value){
-        var input = document.createElement('input');
-        input.type = 'hidden'; input.name = name; input.value = value;
-        form.appendChild(input);
-      }
-      addField('entry.1498135098', first + ' ' + last);
-      addField('entry.877086558', selected);
-
-      var done = false;
-      function finish(){
-        if(done) return;
-        done = true;
-        confirmMsg.textContent = 'Thank you, ' + first + ' \u2014 your answer is in.';
-        sendBtn.textContent = 'Sent';
-        firstInput.disabled = true; lastInput.disabled = true;
-        options.forEach(function(b){ b.disabled = true; });
-        if(form.parentNode) form.parentNode.removeChild(form);
-      }
-      // The iframe finishes loading once Google has received the POST.
-      iframe.addEventListener('load', finish, {once:true});
-      // Safety net: if the load event never fires (blocked, offline), fall back after 3.5s.
-      setTimeout(function(){
-        if(done) return;
-        var params = new URLSearchParams();
-        params.set('usp', 'pp_url');
-        params.set('entry.1498135098', first + ' ' + last);
-        params.set('entry.877086558', selected);
-        confirmMsg.textContent = 'Almost done \u2014 just tap Submit to send it.';
-        window.location.assign('https://docs.google.com/forms/d/e/1FAIpQLScTRlZI1ZZrrEyyXyy6IESUa6qOUckcIDZwtVFtViPeVQrYEw/viewform?' + params.toString());
-      }, 3500);
-
-      document.body.appendChild(form);
-      form.submit();
+      fetch('https://script.google.com/macros/s/AKfycbykagOeuYAPo4X7rctoByTao-JvkvIPxuAwatcRgFC9fdJBuy0RY5Py9iXIUNKZqL9LLA/exec', {
+        method: 'POST',
+        headers: {'Content-Type': 'text/plain;charset=utf-8'},
+        body: JSON.stringify({ name: first + ' ' + last, answer: selected })
+      })
+        .then(function(res){ return res.json(); })
+        .then(function(data){
+          if(data && data.status === 'ok'){
+            confirmMsg.textContent = 'Thank you, ' + first + ' \u2014 your answer is in.';
+            sendBtn.textContent = 'Sent';
+            firstInput.disabled = true; lastInput.disabled = true;
+            options.forEach(function(b){ b.disabled = true; });
+          } else {
+            throw new Error('bad response');
+          }
+        })
+        .catch(function(){
+          confirmMsg.textContent = 'That didn\u2019t go through \u2014 please try again.';
+          sendBtn.disabled = false;
+          sendBtn.classList.add('is-active');
+        });
     });
   })();
 </script>
