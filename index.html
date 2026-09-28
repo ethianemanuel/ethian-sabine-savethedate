@@ -22,7 +22,9 @@
     --gold-soft: #DCC896;
     --rule: rgba(200,173,115,0.34);
     --rule-faint: rgba(246,241,230,0.16);
+    --dim: 0;
   }
+  body.past-hero{ --dim: 1; }
 
   *{ box-sizing: border-box; }
   html,body{ height:100%; }
@@ -60,16 +62,56 @@
     inset: 0;
     z-index: -1;
     pointer-events: none;
-    opacity: calc(1 - var(--dim, 1));
+    opacity: calc(1 - var(--dim, 0));
+    transition: opacity .35s ease;
     background: linear-gradient(to bottom, rgba(14,14,13,0.82) 0%, rgba(14,14,13,0.72) 18%, rgba(14,14,13,0.42) 30%, rgba(14,14,13,0.10) 38%, rgba(14,14,13,0.05) 62%, rgba(14,14,13,0.4) 86%, rgba(14,14,13,0.62) 100%);
   }
   .bg-scrim{
     position: fixed;
     inset: 0;
     z-index: -1;
-    opacity: var(--dim, 1);
+    opacity: var(--dim, 0);
+    transition: opacity .35s ease;
+    pointer-events: none;
     background:
       linear-gradient(to bottom, rgba(14,14,13,0.55) 0%, rgba(14,14,13,0.72) 22%, rgba(14,14,13,0.86) 46%, rgba(14,14,13,0.93) 70%, rgba(14,14,13,0.97) 100%);
+  }
+
+  /* ---------- Scroll cue (bottom edge, out of the way of the faces) ---------- */
+  .scroll-cue{
+    position: fixed;
+    left: 0; right: 0;
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 30px);
+    z-index: 6;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+    pointer-events: none;
+    transition: opacity .5s ease;
+  }
+  .scroll-cue svg{
+    width: 30px; height: 16px;
+    margin-top: -5px;
+    opacity: 0.85;
+    filter: drop-shadow(0 1px 4px rgba(14,14,13,0.7));
+  }
+  .scroll-cue path{
+    fill: none;
+    stroke: var(--gold-soft);
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  body.past-hero .scroll-cue, body.scrolled .scroll-cue{ opacity: 0; }
+  @media (prefers-reduced-motion: no-preference){
+    .scroll-cue svg{ animation: cueFade 2.2s ease-in-out infinite; }
+    .scroll-cue svg:nth-child(2){ animation-delay: .25s; }
+    .scroll-cue svg:nth-child(3){ animation-delay: .5s; }
+  }
+  @keyframes cueFade{
+    0%,100%{ opacity: .2; transform: translateY(-3px); }
+    50%{ opacity: 1; transform: translateY(4px); }
   }
 
   /* ---------- Frame ---------- */
@@ -94,7 +136,7 @@
   /* ---------- Hero ---------- */
   .hero{
     text-align:center;
-    min-height: 92vh;
+    min-height: 74vh;
     display:flex;
     flex-direction: column;
     align-items:center;
@@ -524,6 +566,7 @@
 <div class="bg-scrim"></div>
 <div class="bg-scrim-hero"></div>
 <div class="frame"></div>
+<div class="scroll-cue" aria-hidden="true"><svg viewBox="0 0 22 12" aria-hidden="true"><path d="M2 2 L11 10 L20 2"/></svg><svg viewBox="0 0 22 12" aria-hidden="true"><path d="M2 2 L11 10 L20 2"/></svg><svg viewBox="0 0 22 12" aria-hidden="true"><path d="M2 2 L11 10 L20 2"/></svg></div>
 
 <div class="wrap">
 
@@ -716,18 +759,20 @@
 
 
 <script>
-  /* Photo stays clear at the top so faces show; dims once the hero scrolls out of view.
-     Uses IntersectionObserver (fires a couple of times) instead of a scroll listener
-     (fires hundreds of times), which is what was causing the lag on phones. */
+  /* Photo is clear at the very top; the dark fade begins the moment you scroll.
+     Only toggles a class when crossing a small threshold (cheap, no per-frame work). */
   (function(){
-    var hero = document.querySelector('.hero');
-    if(!hero || !('IntersectionObserver' in window)){ return; }
-    var io = new IntersectionObserver(function(entries){
-      entries.forEach(function(entry){
-        document.body.classList.toggle('past-hero', !entry.isIntersecting);
-      });
-    }, { threshold: 0, rootMargin: '0px 0px -60% 0px' });
-    io.observe(hero);
+    var body = document.body, ticking = false;
+    function update(){
+      ticking = false;
+      var y = window.pageYOffset || document.documentElement.scrollTop || 0;
+      body.classList.toggle('past-hero', y > 12);
+      body.classList.toggle('scrolled', y > 12);
+    }
+    window.addEventListener('scroll', function(){
+      if(!ticking){ ticking = true; requestAnimationFrame(update); }
+    }, { passive: true });
+    update();
   })();
 </script>
 
